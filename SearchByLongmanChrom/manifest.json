@@ -1,0 +1,12 @@
+{
+  "name": "google dic for selection",
+  "version": "0.0.1",
+  "manifest_version": 3,
+  "description": "google dic for selection",
+  "permissions": [
+     "contextMenus"
+  ],    
+  "background": {
+    "service_worker": "background.js"
+  }
+}
