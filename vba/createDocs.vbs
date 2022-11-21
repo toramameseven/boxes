@@ -5,8 +5,9 @@ Option Explicit
 ' | これ以降コメント
 
 '' ########################メインルーチン###################################
-Dim OUTPUT_TEXT_NAME, OUTPUT_HTML_NAME, THIS_SCRIPT_NAME, THIS_VERSION
+Dim OUTPUT_TEXT_NAME, OUTPUT_HTML_NAME, THIS_SCRIPT_NAME, THIS_VERSION, OUTPUT_TEXT_NAME_EX
 OUTPUT_TEXT_NAME = "__Files.txt"
+OUTPUT_TEXT_NAME_EX = "___Files.txt"
 OUTPUT_HTML_NAME = "__Files.html"
 THIS_SCRIPT_NAME = WScript.ScriptName  ' スクリプト名の取得
 THIS_VERSION = "0.0.9.0"
@@ -17,18 +18,9 @@ MSG_ADD_FILES = ";次のファイルは追加されました"
 MSG_DEL_FILES = ";次のファイルは削除されています"
 
 Dim ignoreFolders
-' ignoreFolders = Split("out,.vscode,obj,bin,.buildLog,packages", ",")
-ignoreFolders = Split("", ",")
+ignoreFolders = Split("out,.vscode,obj,bin,.buildLog,packages", ",")
+'' ignoreFolders = Split("", ",")
 
-
-' '' objects
-' Dim FilesInFolders, ExistFiles, DeleteFiles, FilesExistsForDeleteAfter, FilesUpdate
-' ' folder name, folder Obj?
-' Set FilesInFolders = CreateObject("Scripting.Dictionary")
-' Set ExistFiles = CreateObject("Scripting.Dictionary")
-' Set DeleteFiles = CreateObject("Scripting.Dictionary")
-' Set FilesExistsForDeleteAfter = CreateObject("Scripting.Dictionary")
-' Set FilesUpdate = CreateObject("Scripting.Dictionary")
 
 Dim XFC
 Set XFC = new XFileInfoCreator
@@ -292,6 +284,42 @@ Class XFiles
         Set writeStream = Nothing
     End Sub
 
+    Sub WriteToFileEx(filename)
+        'Dim writeStream As ADODB.Stream
+        'Microsoft ActiveX Data Objects 2.5 Libraryと
+        ' WriteText str, 1 => add a newline
+        ' WriteText str, 0 => add no newline
+        Dim writeStream
+
+        ' 文字コードを指定してファイルをオープン
+        Set writeStream = CreateObject("ADODB.Stream")
+        writeStream.Charset = "UTF-8"
+        writeStream.Open
+
+        '実際の中身の書き込み
+        Dim i, items, flgComment
+        items = m_Files.items
+        For i = 0 to m_Files.Count -1
+            flgComment = ""
+            if items(i).IsDelete Then
+                flgComment = ";"
+            End if
+            
+            writeStream.WriteText flgComment & items(i).relativePath, 0
+            if items(i).Comment <> "" Then
+                writeStream.WriteText " | ", 0
+                writeStream.WriteText items(i).Comment, 0
+            End if
+            writeStream.WriteText "", 1
+        next
+        ' ファイルに書き込み
+        writeStream.SaveToFile filename, 2 'adSaveCreateOverWrite:2
+
+        ' ファイルをクローズ
+        writeStream.Close
+        Set writeStream = Nothing
+    End Sub
+
     Function ToDebugString()
         dim items
         items = m_Files.Items
@@ -369,7 +397,6 @@ Sub Main()
     debugPrint 1, "folderList.Count", folderList.Count
 
     call  fileList.WriteToFile(OUTPUT_TEXT_NAME)
-
 
 
     WScript.Quit
@@ -645,6 +672,62 @@ Sub WriteToFile(filename, collection, headerMsg , isNew)
     writeStream.Close
     Set writeStream = Nothing
 End Sub
+
+Sub WriteToFileEx(filename, collection, headerMsg , isNew)
+    'Dim writeStream As ADODB.Stream
+    'Microsoft ActiveX Data Objects 2.5 Libraryと
+    ' WriteText str, 1 => add a newline
+    ' WriteText str, 0 => add no newline
+    Dim writeStream
+
+    ' 文字コードを指定してファイルをオープン
+    Set writeStream = CreateObject("ADODB.Stream")
+    writeStream.Charset = "UTF-8"
+    writeStream.Open
+
+    If isNew =false Then
+        writeStream.LoadFromFile filename
+        writeStream.Position = writeStream.Size
+    End If
+
+    If collection.Count > 0 and headerMsg <> "" Then
+        writeStream.WriteText "", 1
+        writeStream.WriteText  headerMsg, 1
+        writeStream.WriteText "", 1
+    End If
+
+    '実際の中身の書き込み
+    Dim i, items, folderName1, fileName1
+
+    Dim FSO
+    Set FSO = CreateObject("Scripting.FileSystemObject")
+
+    GetParentFolderName= FS.GetParentFolderName(fpath)
+    Set FS = Nothing
+
+    items = collection.items
+    For i = 0 to collection.Count -1
+    	debugPrint 0, headerMsg,  collection.Count
+
+        folderName1 = FSO.GetParentFolderName(items(i))
+        fileName1 = FSO.GetFileName((items(i)))
+        writeStream.WriteText folderName & ": " & fileName , 1
+    next
+
+    If collection.Count > 0 and headerMsg <> ""Then
+        writeStream.WriteText "",1
+        writeStream.WriteText ";>>>>>>>>>>>>>>>>>>ここまで>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>",1
+        writeStream.WriteText "",1
+    End If
+
+    ' ファイルに書き込み
+    writeStream.SaveToFile filename, 2 'adSaveCreateOverWrite:2
+
+    ' ファイルをクローズ
+    writeStream.Close
+    Set writeStream = Nothing
+End Sub
+
 
 ''FilesInFolders, DeleteFiles, ExistFiles
 Public Sub WriteToFileHTML(collection0, collection1, collection2)
